@@ -3,79 +3,61 @@ using RocketRP.TrainingGUI.Models;
 
 namespace RocketRP.TrainingGUI.ViewModels
 {
-	/// <summary>
-	/// Editable view of a ball or car placement. X is the width of the field, Y its length, Z the height;
-	/// Pitch is the up/down rotation, Yaw the left/right one (roll is not editable in game, always 0).
-	/// </summary>
+	/// <summary>Editable view of the placement of a ball or of a car.</summary>
 	public class ArchetypeViewModel : ObservableObject
 	{
-		private const string SpeedKey = "VelocityStartSpeed";
+		private readonly ArchetypePlacement _placement;
 
-		private readonly ArchetypeFields _fields;
-		private readonly string _locationPrefix;
-		private readonly string _rotationPrefix;
-
-		private ArchetypeViewModel(ArchetypeFields fields, string locationPrefix, string rotationPrefix)
+		public ArchetypeViewModel(ArchetypePlacement placement)
 		{
-			_fields = fields;
-			_locationPrefix = locationPrefix;
-			_rotationPrefix = rotationPrefix;
+			_placement = placement;
 		}
-
-		public static ArchetypeViewModel ForBall(ArchetypeFields fields) => new(fields, "StartLocation", "VelocityStartRotation");
-
-		public static ArchetypeViewModel ForCar(ArchetypeFields fields) => new(fields, "Location", "Rotation");
 
 		public double X
 		{
-			get => _fields.GetDouble(_locationPrefix + "X");
-			set => SetDouble(_locationPrefix + "X", value);
+			get => _placement.X;
+			set => Set(_placement.X, value, v => _placement.X = v);
 		}
 
 		public double Y
 		{
-			get => _fields.GetDouble(_locationPrefix + "Y");
-			set => SetDouble(_locationPrefix + "Y", value);
+			get => _placement.Y;
+			set => Set(_placement.Y, value, v => _placement.Y = v);
 		}
 
 		public double Z
 		{
-			get => _fields.GetDouble(_locationPrefix + "Z");
-			set => SetDouble(_locationPrefix + "Z", value);
+			get => _placement.Z;
+			set => Set(_placement.Z, value, v => _placement.Z = v);
 		}
 
 		public int Pitch
 		{
-			get => _fields.GetInt(_rotationPrefix + "P");
-			set => SetInt(_rotationPrefix + "P", value);
+			get => _placement.Pitch;
+			set => Set(_placement.Pitch, value, v => _placement.Pitch = v);
 		}
 
 		public int Yaw
 		{
-			get => _fields.GetInt(_rotationPrefix + "Y");
-			set => SetInt(_rotationPrefix + "Y", value);
+			get => _placement.Yaw;
+			set => Set(_placement.Yaw, value, v => _placement.Yaw = v);
 		}
 
 		/// <summary>Starting speed in cm/s.</summary>
 		public double Speed
 		{
-			get => _fields.GetDouble(SpeedKey);
-			set => SetDouble(SpeedKey, value);
+			get => _placement.Speed;
+			set => Set(_placement.Speed, value, v => _placement.Speed = v);
 		}
 
-		private void SetDouble(string key, double value, [CallerMemberName] string? propertyName = null)
+		/// <summary>Signals that every field may have changed, after the model was edited as a whole.</summary>
+		public void Refresh() => OnPropertyChanged(string.Empty);
+
+		private void Set<T>(T current, T value, Action<T> apply, [CallerMemberName] string? propertyName = null)
 		{
-			if (_fields.GetDouble(key).Equals(value)) return;
+			if (EqualityComparer<T>.Default.Equals(current, value)) return;
 
-			_fields.SetDouble(key, value);
-			OnPropertyChanged(propertyName);
-		}
-
-		private void SetInt(string key, int value, [CallerMemberName] string? propertyName = null)
-		{
-			if (_fields.GetInt(key) == value) return;
-
-			_fields.SetInt(key, value);
+			apply(value);
 			OnPropertyChanged(propertyName);
 		}
 	}

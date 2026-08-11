@@ -31,12 +31,24 @@ namespace RocketRP.TrainingGUI.ViewModels
 			RenameCommand = new RelayCommand(Rename, () => HasJson);
 			SaveCommand = new RelayCommand(Save, () => IsModified);
 			ConvertToTemCommand = new RelayCommand(ConvertToTem, () => HasJson);
+			DuplicateRoundCommand = new RelayCommand(DuplicateRound, () => SelectedRound != null);
+			MirrorRoundCommand = new RelayCommand(MirrorRound, () => SelectedRound != null);
+			MirrorAllRoundsCommand = new RelayCommand(MirrorAllRounds, () => Rounds.Count > 0);
+			MoveRoundUpCommand = new RelayCommand(() => MoveRound(-1), () => SelectedRound?.Number > 1);
+			MoveRoundDownCommand = new RelayCommand(() => MoveRound(1), () => SelectedRound != null && SelectedRound.Number < Rounds.Count);
+			DeleteRoundCommand = new RelayCommand(DeleteRound, () => SelectedRound != null && Rounds.Count > 1);
 		}
 
 		public ICommand ImportCommand { get; }
 		public ICommand RenameCommand { get; }
 		public ICommand SaveCommand { get; }
 		public ICommand ConvertToTemCommand { get; }
+		public ICommand DuplicateRoundCommand { get; }
+		public ICommand MirrorRoundCommand { get; }
+		public ICommand MirrorAllRoundsCommand { get; }
+		public ICommand MoveRoundUpCommand { get; }
+		public ICommand MoveRoundDownCommand { get; }
+		public ICommand DeleteRoundCommand { get; }
 
 		public ObservableCollection<RoundViewModel> Rounds { get; } = [];
 
@@ -242,25 +254,112 @@ namespace RocketRP.TrainingGUI.ViewModels
 			}
 		}
 
+		private void DuplicateRound()
+		{
+			if (_document == null || SelectedRound == null) return;
+
+			try
+			{
+				var copy = _document.Duplicate(SelectedRound.Round);
+				ReloadRounds(copy.Number - 1);
+				IsModified = true;
+				AppendLog($"Niveau dupliqué en position {copy.Number} ({Rounds.Count} niveaux au total).");
+			}
+			catch (Exception e)
+			{
+				AppendLog($"Échec de la duplication : {e.Message}");
+			}
+		}
+
+		private void MirrorRound()
+		{
+			if (SelectedRound == null) return;
+
+			var number = SelectedRound.Number;
+			SelectedRound.Mirror();
+			AppendLog($"Niveau {number} mis en miroir (X inversé, yaw = {ArchetypePlacement.YawHalfTurn} - yaw).");
+		}
+
+		private void MirrorAllRounds()
+		{
+			if (_document == null || Rounds.Count == 0) return;
+
+			var count = Rounds.Count;
+			if (!_dialogService.Confirm($"Ajouter un miroir après chacun des {count} niveaux ?\n\nLe pack passera à {count * 2} niveaux.")) return;
+
+			try
+			{
+				_document.DuplicateAllMirrored();
+				ReloadRounds(0);
+				IsModified = true;
+				AppendLog($"Miroir ajouté après chaque niveau : {Rounds.Count} niveaux (1, 1bis, 2, 2bis...).");
+			}
+			catch (Exception e)
+			{
+				AppendLog($"Échec du miroir global : {e.Message}");
+			}
+		}
+
+		private void MoveRound(int offset)
+		{
+			if (_document == null || SelectedRound == null) return;
+
+			var from = SelectedRound.Number;
+			var to = _document.Move(SelectedRound.Round, offset);
+			if (to == from) return;
+
+			ReloadRounds(to - 1);
+			IsModified = true;
+			AppendLog($"Niveau {from} déplacé en position {to}.");
+		}
+
+		private void DeleteRound()
+		{
+			if (_document == null || SelectedRound == null) return;
+
+			var number = SelectedRound.Number;
+			if (!_dialogService.Confirm($"Supprimer le niveau {number} ?")) return;
+
+			try
+			{
+				_document.Remove(SelectedRound.Round);
+				ReloadRounds(Math.Min(number - 1, _document.Rounds.Count - 1));
+				IsModified = true;
+				AppendLog($"Niveau {number} supprimé ({Rounds.Count} niveaux restants).");
+			}
+			catch (Exception e)
+			{
+				AppendLog($"Échec de la suppression : {e.Message}");
+			}
+		}
+
 		private void LoadJson(string path)
 		{
 			Unload();
 
-			var document = TrainingPackDocument.Load(path);
-			foreach (var round in document.Rounds)
+			_document = TrainingPackDocument.Load(path);
+			ReloadRounds(0);
+			JsonPath = path;
+			JsonFileName = Path.GetFileName(path);
+			AvailableMaps = MapCatalog.WithCurrentMap(_document.MapName);
+			OnPropertyChanged(nameof(PackName));
+			OnPropertyChanged(nameof(PackMap));
+		}
+
+		/// <summary>Rebuilds the level view models after the list itself changed, keeping a level selected.</summary>
+		private void ReloadRounds(int selectedIndex)
+		{
+			foreach (var round in Rounds) round.PropertyChanged -= OnRoundChanged;
+			Rounds.Clear();
+
+			foreach (var round in _document?.Rounds ?? [])
 			{
 				var roundViewModel = new RoundViewModel(round);
 				roundViewModel.PropertyChanged += OnRoundChanged;
 				Rounds.Add(roundViewModel);
 			}
 
-			_document = document;
-			JsonPath = path;
-			JsonFileName = Path.GetFileName(path);
-			SelectedRound = Rounds.FirstOrDefault();
-			AvailableMaps = MapCatalog.WithCurrentMap(document.MapName);
-			OnPropertyChanged(nameof(PackName));
-			OnPropertyChanged(nameof(PackMap));
+			SelectedRound = Rounds.ElementAtOrDefault(selectedIndex) ?? Rounds.FirstOrDefault();
 		}
 
 		private void Unload()

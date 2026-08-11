@@ -18,15 +18,16 @@ namespace RocketRP.TrainingGUI.Models
 		private const string TimeLimitKey = "TimeLimit";
 		private const string SerializedArchetypesKey = "SerializedArchetypes";
 
-		private readonly JsonObject _round;
 		private readonly JsonArray _archetypes;
+		private readonly ArchetypeFields _ballFields;
+		private readonly ArchetypeFields _carFields;
 		private readonly int _ballIndex;
 		private readonly int _carIndex;
 
 		public TrainingRound(int number, JsonObject round)
 		{
 			Number = number;
-			_round = round;
+			Node = round;
 			_archetypes = round[SerializedArchetypesKey] as JsonArray
 				?? throw new InvalidDataException($"Le niveau {number} n'a pas de {SerializedArchetypesKey}.");
 
@@ -35,29 +36,41 @@ namespace RocketRP.TrainingGUI.Models
 			_carIndex = fields.FindIndex(field => field.ObjectArchetype == CarArchetype);
 			if (_ballIndex < 0 || _carIndex < 0) throw new InvalidDataException($"Le niveau {number} n'a pas de balle et/ou de voiture.");
 
-			Ball = fields[_ballIndex];
-			Car = fields[_carIndex];
+			_ballFields = fields[_ballIndex];
+			_carFields = fields[_carIndex];
+			Ball = ArchetypePlacement.ForBall(_ballFields);
+			Car = ArchetypePlacement.ForCar(_carFields);
 		}
 
 		/// <summary>1-based position of the level inside the pack.</summary>
 		public int Number { get; }
 
-		public ArchetypeFields Ball { get; }
+		/// <summary>The node of the level inside the document, used to duplicate it.</summary>
+		public JsonObject Node { get; }
 
-		public ArchetypeFields Car { get; }
+		public ArchetypePlacement Ball { get; }
+
+		public ArchetypePlacement Car { get; }
 
 		/// <summary>Seconds available to complete the level.</summary>
 		public int TimeLimit
 		{
-			get => _round[TimeLimitKey]?.GetValue<int>() ?? MinTimeLimit;
-			set => _round[TimeLimitKey] = Math.Clamp(value, MinTimeLimit, MaxTimeLimit);
+			get => Node[TimeLimitKey]?.GetValue<int>() ?? MinTimeLimit;
+			set => Node[TimeLimitKey] = Math.Clamp(value, MinTimeLimit, MaxTimeLimit);
+		}
+
+		/// <summary>Mirrors the level left/right, ball and car alike.</summary>
+		public void Mirror()
+		{
+			Ball.Mirror();
+			Car.Mirror();
 		}
 
 		/// <summary>Writes the ball and car fields back into the JSON document.</summary>
 		public void Flush()
 		{
-			_archetypes[_ballIndex] = Ball.ToJson();
-			_archetypes[_carIndex] = Car.ToJson();
+			_archetypes[_ballIndex] = _ballFields.ToJson();
+			_archetypes[_carIndex] = _carFields.ToJson();
 		}
 	}
 }

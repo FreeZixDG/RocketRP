@@ -121,8 +121,28 @@
 			</Grid>
 		</GroupBox>
 
-		<ListBox Grid.Row="4" Grid.Column="0" Width="150" Margin="0,12,0,0" ItemsSource="{Binding Rounds}"
-				 SelectedItem="{Binding SelectedRound}" DisplayMemberPath="DisplayName" />
+		<DockPanel Grid.Row="4" Grid.Column="0" Width="180" Margin="0,12,0,0">
+			<StackPanel DockPanel.Dock="Bottom" Margin="0,6,0,0">
+				<UniformGrid Columns="2">
+					<Button Padding="4" Margin="0,0,2,0" Content="▲ Monter" ToolTip="Alt + Flèche haut" Command="{Binding MoveRoundUpCommand}" />
+					<Button Padding="4" Margin="2,0,0,0" Content="▼ Descendre" ToolTip="Alt + Flèche bas" Command="{Binding MoveRoundDownCommand}" />
+				</UniformGrid>
+				<Button Padding="4" Margin="0,4,0,0" Content="Dupliquer le niveau" Command="{Binding DuplicateRoundCommand}" />
+				<Button Padding="4" Margin="0,4,0,0" Content="Miroir gauche / droite" Command="{Binding MirrorRoundCommand}" />
+				<Button Padding="4" Margin="0,4,0,0" Command="{Binding MirrorAllRoundsCommand}">
+					<TextBlock TextWrapping="Wrap" TextAlignment="Center" Text="Doubler tout en miroir (1, 1bis, 2, 2bis...)" />
+				</Button>
+				<Button Padding="4" Margin="0,8,0,0" Foreground="DarkRed" Content="Supprimer le niveau"
+						ToolTip="Suppr" Command="{Binding DeleteRoundCommand}" />
+			</StackPanel>
+			<ListBox ItemsSource="{Binding Rounds}" SelectedItem="{Binding SelectedRound}" DisplayMemberPath="DisplayName">
+				<ListBox.InputBindings>
+					<KeyBinding Modifiers="Alt" Key="Up" Command="{Binding MoveRoundUpCommand}" />
+					<KeyBinding Modifiers="Alt" Key="Down" Command="{Binding MoveRoundDownCommand}" />
+					<KeyBinding Key="Delete" Command="{Binding DeleteRoundCommand}" />
+				</ListBox.InputBindings>
+			</ListBox>
+		</DockPanel>
 		<ScrollViewer Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="2" Margin="12,12,0,0" VerticalScrollBarVisibility="Auto">
 			<ContentControl Content="{Binding SelectedRound}" />
 		</ScrollViewer>
