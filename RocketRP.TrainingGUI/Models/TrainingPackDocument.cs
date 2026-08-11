@@ -12,6 +12,9 @@ namespace RocketRP.TrainingGUI.Models
 	{
 		public const string TrainingDataObjectName = "TAGame.TrainingEditorData_TA";
 
+		private const string NameKey = "TM_Name";
+		private const string MapKey = "MapName";
+
 		private static readonly JsonSerializerOptions WriteOptions = new() { WriteIndented = true };
 
 		private readonly JsonNode _root;
@@ -40,11 +43,29 @@ namespace RocketRP.TrainingGUI.Models
 
 		public IReadOnlyList<TrainingRound> Rounds { get; }
 
-		/// <summary>Name given to the pack in game, read-only here.</summary>
-		public string? Name => _trainingData["TM_Name"]?.GetValue<string>();
+		/// <summary>Title of the pack as shown in game.</summary>
+		public string Name
+		{
+			get => _trainingData[NameKey]?.GetValue<string>() ?? string.Empty;
+			set => _trainingData[NameKey] = value;
+		}
 
-		/// <summary>Name of the map the pack was created on, read-only here.</summary>
-		public string? MapName => _trainingData["MapName"]?.GetValue<string>();
+		/// <summary>
+		/// Map the pack is played on. Only keys listed by <see cref="MapCatalog"/> should be written:
+		/// the game crashes on an unknown one.
+		/// </summary>
+		public string MapName
+		{
+			get => _trainingData[MapKey]?.GetValue<string>() ?? string.Empty;
+			set
+			{
+				if (value == MapName) return;
+
+				// Write the catalog spelling, never what the caller happened to type.
+				_trainingData[MapKey] = MapCatalog.KnownMaps.FirstOrDefault(map => string.Equals(map, value, StringComparison.OrdinalIgnoreCase))
+					?? throw new ArgumentException($"Map inconnue : {value}", nameof(value));
+			}
+		}
 
 		public void Save(string jsonPath)
 		{

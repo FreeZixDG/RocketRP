@@ -16,9 +16,11 @@ namespace RocketRP.TrainingGUI.ViewModels
 
 		private TrainingPackDocument? _document;
 		private RoundViewModel? _selectedRound;
+		private IReadOnlyList<string> _availableMaps = MapCatalog.KnownMaps;
 		private string? _jsonPath;
 		private string _jsonFileName = string.Empty;
 		private bool _isModified;
+		private bool _isMapUnlocked;
 
 		public MainViewModel(TrainingConverter converter, IFileDialogService dialogService)
 		{
@@ -71,9 +73,66 @@ namespace RocketRP.TrainingGUI.ViewModels
 			private set => SetProperty(ref _isModified, value);
 		}
 
-		public string PackName => _document?.Name ?? string.Empty;
+		/// <summary>Title of the pack as shown in game.</summary>
+		public string PackName
+		{
+			get => _document?.Name ?? string.Empty;
+			set
+			{
+				if (_document == null || _document.Name == value) return;
 
-		public string PackMap => _document?.MapName ?? string.Empty;
+				_document.Name = value;
+				IsModified = true;
+				OnPropertyChanged();
+			}
+		}
+
+		/// <summary>Map of the pack. Only settable once <see cref="IsMapUnlocked"/> has been confirmed.</summary>
+		public string PackMap
+		{
+			get => _document?.MapName ?? string.Empty;
+			set
+			{
+				if (_document == null || !IsMapUnlocked || string.IsNullOrEmpty(value) || _document.MapName == value) return;
+
+				try
+				{
+					_document.MapName = value;
+					IsModified = true;
+					AppendLog($"Map changée en {value}. Les positions des niveaux n'ont pas été adaptées.");
+				}
+				catch (ArgumentException e)
+				{
+					AppendLog($"Map refusée : {e.Message}");
+				}
+
+				OnPropertyChanged();
+			}
+		}
+
+		/// <summary>Maps offered in the picker: the known ones plus the current map if it isn't listed.</summary>
+		public IReadOnlyList<string> AvailableMaps
+		{
+			get => _availableMaps;
+			private set => SetProperty(ref _availableMaps, value);
+		}
+
+		/// <summary>
+		/// Locked by default: changing the map can crash the game and the round positions stay as they are.
+		/// Unlocking asks for an explicit confirmation.
+		/// </summary>
+		public bool IsMapUnlocked
+		{
+			get => _isMapUnlocked;
+			set
+			{
+				_isMapUnlocked = value && _document != null
+					&& _dialogService.Confirm("Changer la map peut faire planter le jeu et les positions des niveaux ne seront pas adaptées à la nouvelle map.\n\nDéverrouiller quand même ?");
+
+				// Always notify: the checkbox has to go back down when the confirmation is refused.
+				OnPropertyChanged();
+			}
+		}
 
 		public string Log => _log.ToString();
 
@@ -199,6 +258,7 @@ namespace RocketRP.TrainingGUI.ViewModels
 			JsonPath = path;
 			JsonFileName = Path.GetFileName(path);
 			SelectedRound = Rounds.FirstOrDefault();
+			AvailableMaps = MapCatalog.WithCurrentMap(document.MapName);
 			OnPropertyChanged(nameof(PackName));
 			OnPropertyChanged(nameof(PackMap));
 		}
@@ -213,6 +273,11 @@ namespace RocketRP.TrainingGUI.ViewModels
 			JsonPath = null;
 			JsonFileName = string.Empty;
 			IsModified = false;
+			AvailableMaps = MapCatalog.KnownMaps;
+
+			// Re-lock the map without asking anything, the property setter is for the user only.
+			_isMapUnlocked = false;
+			OnPropertyChanged(nameof(IsMapUnlocked));
 			OnPropertyChanged(nameof(PackName));
 			OnPropertyChanged(nameof(PackMap));
 		}
