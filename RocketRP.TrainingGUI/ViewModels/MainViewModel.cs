@@ -10,6 +10,8 @@ namespace RocketRP.TrainingGUI.ViewModels
 {
 	public class MainViewModel : ObservableObject
 	{
+		private const string BackupExtension = ".bak";
+
 		private readonly TrainingConverter _converter;
 		private readonly IFileDialogService _dialogService;
 		private readonly StringBuilder _log = new();
@@ -21,6 +23,8 @@ namespace RocketRP.TrainingGUI.ViewModels
 		private string _jsonFileName = string.Empty;
 		private bool _isModified;
 		private bool _isMapUnlocked;
+		private bool _includeTitleOnInject = true;
+		private bool _includeMapOnInject = true;
 
 		public MainViewModel(TrainingConverter converter, IFileDialogService dialogService)
 		{
@@ -37,6 +41,7 @@ namespace RocketRP.TrainingGUI.ViewModels
 			MoveRoundUpCommand = new RelayCommand(() => MoveRound(-1), () => SelectedRound?.Number > 1);
 			MoveRoundDownCommand = new RelayCommand(() => MoveRound(1), () => SelectedRound != null && SelectedRound.Number < Rounds.Count);
 			DeleteRoundCommand = new RelayCommand(DeleteRound, () => SelectedRound != null && Rounds.Count > 1);
+			InjectIntoTemCommand = new RelayCommand(InjectIntoTem, () => HasJson);
 		}
 
 		public ICommand ImportCommand { get; }
@@ -49,6 +54,7 @@ namespace RocketRP.TrainingGUI.ViewModels
 		public ICommand MoveRoundUpCommand { get; }
 		public ICommand MoveRoundDownCommand { get; }
 		public ICommand DeleteRoundCommand { get; }
+		public ICommand InjectIntoTemCommand { get; }
 
 		public ObservableCollection<RoundViewModel> Rounds { get; } = [];
 
@@ -144,6 +150,20 @@ namespace RocketRP.TrainingGUI.ViewModels
 				// Always notify: the checkbox has to go back down when the confirmation is refused.
 				OnPropertyChanged();
 			}
+		}
+
+		/// <summary>Whether an injection also copies the title and the training category.</summary>
+		public bool IncludeTitleOnInject
+		{
+			get => _includeTitleOnInject;
+			set => SetProperty(ref _includeTitleOnInject, value);
+		}
+
+		/// <summary>Whether an injection also copies the map, needed when the target was created on another one.</summary>
+		public bool IncludeMapOnInject
+		{
+			get => _includeMapOnInject;
+			set => SetProperty(ref _includeMapOnInject, value);
 		}
 
 		public string Log => _log.ToString();
@@ -297,6 +317,49 @@ namespace RocketRP.TrainingGUI.ViewModels
 			catch (Exception e)
 			{
 				AppendLog($"Échec du miroir global : {e.Message}");
+			}
+		}
+
+		/// <summary>
+		/// Writes the levels of the loaded pack into a .Tem created by the game on the user's own
+		/// account. The target keeps its identity, so the pack stays owned by that account.
+		/// </summary>
+		private void InjectIntoTem()
+		{
+			if (_document == null) return;
+
+			var temPath = _dialogService.PickTargetTemFile();
+			if (temPath == null) return;
+
+			try
+			{
+				var target = TrainingPackDocument.Parse(_converter.TemToJsonText(temPath));
+				var backupPath = temPath + BackupExtension;
+
+				var confirmation = $"Injecter les {Rounds.Count} niveaux de « {PackName} » ({PackMap}) dans {Path.GetFileName(temPath)} ?\n\n"
+					+ $"Cible : « {target.Name} » sur {target.MapName}, {target.Rounds.Count} niveaux, qui seront remplacés.\n"
+					+ "Le code, le GUID et les dates de la cible sont conservés.\n\n"
+					+ (File.Exists(backupPath)
+						? $"La sauvegarde {Path.GetFileName(backupPath)} existe déjà et sera conservée telle quelle."
+						: $"Une sauvegarde {Path.GetFileName(backupPath)} sera créée.");
+				if (!_dialogService.Confirm(confirmation)) return;
+
+				if (!IncludeMapOnInject && !string.Equals(target.MapName, PackMap, StringComparison.OrdinalIgnoreCase))
+				{
+					AppendLog($"Attention : la cible est sur {target.MapName} et le pack sur {PackMap}, les positions ne correspondront pas.");
+				}
+
+				target.InjectFrom(_document, IncludeTitleOnInject, IncludeMapOnInject);
+
+				// Keep the first backup, which is the only pristine copy of the target.
+				if (!File.Exists(backupPath)) File.Copy(temPath, backupPath);
+				_converter.JsonTextToTem(target.ToJsonString(), temPath);
+
+				AppendLog($"Injecté dans {temPath} ({Rounds.Count} niveaux, sauvegarde : {Path.GetFileName(backupPath)}).");
+			}
+			catch (Exception e)
+			{
+				AppendLog($"Échec de l'injection dans {temPath} : {e.Message}");
 			}
 		}
 

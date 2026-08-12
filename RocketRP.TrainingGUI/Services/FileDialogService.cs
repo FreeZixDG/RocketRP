@@ -17,6 +17,18 @@ namespace RocketRP.TrainingGUI.Services
 			return dialog.ShowDialog() == true ? dialog.FileName : null;
 		}
 
+		public string? PickTargetTemFile()
+		{
+			var dialog = new OpenFileDialog
+			{
+				Title = "Choisir le .Tem à écraser (créé par le jeu sur ton compte)",
+				Filter = "Training pack binaire (*.Tem)|*.Tem",
+				CheckFileExists = true,
+			};
+
+			return dialog.ShowDialog() == true ? dialog.FileName : null;
+		}
+
 		public bool Confirm(string message)
 		{
 			return MessageBox.Show(message, "Confirmation", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes;

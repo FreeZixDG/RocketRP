@@ -22,19 +22,31 @@ namespace RocketRP.TrainingGUI.Services
 		/// <summary>Deserializes a .Tem file and writes the JSON next to it. Returns the JSON path.</summary>
 		public string TemToJson(string temPath, bool prettyPrint = true)
 		{
-			var training = SaveData<SaveData_GameEditor_Training_TA>.Deserialize(temPath);
 			var jsonPath = GetJsonPath(temPath);
-			File.WriteAllText(jsonPath, _serializer.Serialize(training, prettyPrint));
+			File.WriteAllText(jsonPath, TemToJsonText(temPath, prettyPrint));
 			return jsonPath;
 		}
 
 		/// <summary>Serializes a JSON file back into a .Tem file next to it. Returns the .Tem path.</summary>
 		public string JsonToTem(string jsonPath)
 		{
-			var training = _serializer.Deserialize<SaveData_GameEditor_Training_TA>(File.ReadAllText(jsonPath));
 			var temPath = GetTemPath(jsonPath);
-			training.Serialize(temPath);
+			JsonTextToTem(File.ReadAllText(jsonPath), temPath);
 			return temPath;
+		}
+
+		/// <summary>Reads a .Tem file and returns its JSON, without writing anything.</summary>
+		public string TemToJsonText(string temPath, bool prettyPrint = true)
+		{
+			var training = SaveData<SaveData_GameEditor_Training_TA>.Deserialize(temPath);
+			return _serializer.Serialize(training, prettyPrint);
+		}
+
+		/// <summary>Writes JSON held in memory to the given .Tem file, replacing it.</summary>
+		public void JsonTextToTem(string json, string temPath)
+		{
+			var training = _serializer.Deserialize<SaveData_GameEditor_Training_TA>(json);
+			training.Serialize(temPath);
 		}
 	}
 }

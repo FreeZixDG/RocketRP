@@ -6,6 +6,9 @@ namespace RocketRP.TrainingGUI.Services
 		/// <summary>Asks the user for a .Tem or .json training pack. Returns null if cancelled.</summary>
 		string? PickTrainingFile();
 
+		/// <summary>Asks the user for the .Tem file to inject into. Returns null if cancelled.</summary>
+		string? PickTargetTemFile();
+
 		/// <summary>Asks the user a yes/no question. Returns true if confirmed.</summary>
 		bool Confirm(string message);
 	}

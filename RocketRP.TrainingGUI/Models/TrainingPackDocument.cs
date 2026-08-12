@@ -14,6 +14,8 @@ namespace RocketRP.TrainingGUI.Models
 
 		private const string NameKey = "TM_Name";
 		private const string MapKey = "MapName";
+		private const string TypeKey = "Type";
+		private const string RoundsKey = "Rounds";
 
 		private static readonly JsonSerializerOptions WriteOptions = new() { WriteIndented = true };
 
@@ -30,15 +32,17 @@ namespace RocketRP.TrainingGUI.Models
 			RebuildRounds();
 		}
 
-		public static TrainingPackDocument Load(string jsonPath)
+		public static TrainingPackDocument Load(string jsonPath) => Parse(File.ReadAllText(jsonPath));
+
+		public static TrainingPackDocument Parse(string json)
 		{
-			var root = JsonNode.Parse(File.ReadAllText(jsonPath)) ?? throw new InvalidDataException("Le fichier JSON est vide.");
+			var root = JsonNode.Parse(json) ?? throw new InvalidDataException("Le fichier JSON est vide.");
 
 			var objects = root["Objects"] as JsonArray ?? throw new InvalidDataException("Le fichier JSON n'a pas de liste Objects.");
 			var trainingData = objects.OfType<JsonObject>().FirstOrDefault(o => o["ObjectName"]?.GetValue<string>() == TrainingDataObjectName)
 				?? throw new InvalidDataException($"Le fichier JSON ne contient pas d'objet {TrainingDataObjectName}.");
 
-			var roundNodes = trainingData["Rounds"] as JsonArray ?? throw new InvalidDataException("Le training pack n'a pas de Rounds.");
+			var roundNodes = trainingData[RoundsKey] as JsonArray ?? throw new InvalidDataException("Le training pack n'a pas de Rounds.");
 
 			return new TrainingPackDocument(root, trainingData, roundNodes);
 		}
@@ -67,6 +71,38 @@ namespace RocketRP.TrainingGUI.Models
 				_trainingData[MapKey] = MapCatalog.KnownMaps.FirstOrDefault(map => string.Equals(map, value, StringComparison.OrdinalIgnoreCase))
 					?? throw new ArgumentException($"Map inconnue : {value}", nameof(value));
 			}
+		}
+
+		/// <summary>Training category of the pack (Training_Striker, Training_Goalie, ...).</summary>
+		public string Type => _trainingData[TypeKey]?.GetValue<string>() ?? string.Empty;
+
+		/// <summary>
+		/// Copies the levels of <paramref name="source"/> into this pack, and optionally its title,
+		/// its category and its map. Everything that identifies the pack in game - Code, TM_Guid,
+		/// CreatedAt, UpdatedAt - stays the one of this document, which is the point of injecting:
+		/// the target file is the one that belongs to the account.
+		/// </summary>
+		public void InjectFrom(TrainingPackDocument source, bool includeTitle, bool includeMap)
+		{
+			source.FlushAll();
+
+			_roundNodes.Clear();
+			foreach (var node in source._roundNodes)
+			{
+				if (node is { } round) _roundNodes.Add(round.DeepClone());
+			}
+
+			RebuildRounds();
+
+			if (includeTitle)
+			{
+				Name = source.Name;
+				_trainingData[TypeKey] = source.Type;
+			}
+
+			// Written without going through the MapName setter: the value comes from a pack the game
+			// itself wrote, so it is valid even if it is not in our catalog.
+			if (includeMap) _trainingData[MapKey] = source.MapName;
 		}
 
 		/// <summary>
@@ -137,10 +173,13 @@ namespace RocketRP.TrainingGUI.Models
 			FlushAll();
 		}
 
-		public void Save(string jsonPath)
+		public void Save(string jsonPath) => File.WriteAllText(jsonPath, ToJsonString());
+
+		/// <summary>The whole document as JSON, pending edits included.</summary>
+		public string ToJsonString()
 		{
 			FlushAll();
-			File.WriteAllText(jsonPath, _root.ToJsonString(WriteOptions));
+			return _root.ToJsonString(WriteOptions);
 		}
 
 		private int IndexOf(TrainingRound round)
