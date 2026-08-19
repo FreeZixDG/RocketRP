@@ -1,0 +1,65 @@
+name: Release RocketRP Training GUI
+
+on:
+  push:
+    tags:
+      - "training-gui-v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Read version from tag
+        id: version
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}" -replace '^training-gui-v', ''
+          if ($version -notmatch '^\d+\.\d+\.\d+([-.][0-9A-Za-z.-]+)?$') {
+            throw "Invalid version tag: ${{ github.ref_name }}"
+          }
+          "number=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Publish standalone Windows executable
+        shell: pwsh
+        run: |
+          dotnet publish .\RocketRP.TrainingGUI\RocketRP.TrainingGUI.csproj `
+            --configuration Release `
+            --runtime win-x64 `
+            --self-contained true `
+            --output .\artifacts\publish `
+            -p:Version=${{ steps.version.outputs.number }} `
+            -p:InformationalVersion=${{ steps.version.outputs.number }} `
+            -p:PublishSingleFile=true `
+            -p:DebugType=None `
+            -p:DebugSymbols=false
+
+      - name: Package download
+        shell: pwsh
+        run: |
+          $archive = ".\artifacts\RocketRP-TrainingGUI-v${{ steps.version.outputs.number }}-win-x64.zip"
+          Compress-Archive -Path .\artifacts\publish\* -DestinationPath $archive
+          (Get-FileHash $archive -Algorithm SHA256).Hash.ToLower() + "  " + (Split-Path $archive -Leaf) |
+            Set-Content ".\artifacts\RocketRP-TrainingGUI-v${{ steps.version.outputs.number }}-win-x64.sha256"
+
+      - name: Create GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" `
+            ".\artifacts\RocketRP-TrainingGUI-v${{ steps.version.outputs.number }}-win-x64.zip" `
+            ".\artifacts\RocketRP-TrainingGUI-v${{ steps.version.outputs.number }}-win-x64.sha256" `
+            --title "RocketRP Training GUI v${{ steps.version.outputs.number }}" `
+            --generate-notes `
+            --verify-tag
