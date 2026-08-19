@@ -8,6 +8,10 @@
     <UseWPF>true</UseWPF>
     <RootNamespace>RocketRP.TrainingGUI</RootNamespace>
     <AssemblyName>RocketRP.TrainingGUI</AssemblyName>
+    <Version>0.1.0</Version>
+    <Authors>FreeZixDG</Authors>
+    <Product>RocketRP Training GUI</Product>
+    <Description>Graphical editor and converter for Rocket League custom training packs.</Description>
   </PropertyGroup>
 
   <ItemGroup>

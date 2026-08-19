@@ -10,6 +10,19 @@ RocketRP successfully parses all my 900+ replays dating back to early 2016. If y
 
 RocketRP can also be used to convert custom training files to and from objects and JSON.
 
+## RocketRP Training GUI
+
+The Windows GUI is distributed from the [GitHub Releases page](https://github.com/FreeZixDG/RocketRP/releases). Download the latest `RocketRP-TrainingGUI-*-win-x64.zip`, extract it, then run `RocketRP.TrainingGUI.exe`.
+
+To publish a new version, create and push a semantic version tag dedicated to the GUI:
+
+```powershell
+git tag training-gui-v1.0.0
+git push origin training-gui-v1.0.0
+```
+
+GitHub Actions builds a self-contained Windows x64 application, embeds `1.0.0` in the executable, and attaches the ZIP and its SHA-256 checksum to a new GitHub Release.
+
 I like working on this project regardless, but if you would like to support me with this project: [![Donate](https://img.shields.io/badge/Dontate-Paypal-002f85)](https://www.paypal.com/paypalme/Drogings)
 
 ## Install
