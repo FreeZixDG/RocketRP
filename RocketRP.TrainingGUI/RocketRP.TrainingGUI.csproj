@@ -12,6 +12,7 @@
     <Authors>FreeZixDG</Authors>
     <Product>RocketRP Training GUI</Product>
     <Description>Graphical editor and converter for Rocket League custom training packs.</Description>
+    <ApplicationIcon>..\icons\RocketRP.TrainingGUI.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
